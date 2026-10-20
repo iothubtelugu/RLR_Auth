@@ -3,25 +3,183 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: #F4FBFF;
-    --card: #FFFFFF;
-    --primary-navy: #073B8C;
-    --secondary-blue: #1677C8;
-    --accent-cyan: #00A9E8;
-    --highlight-yellow: #FFD21C;
-    --primary-text: #172B4D;
-    --secondary-text: #64748B;
-    --border: #E2EAF2;
+  :root,
+  [data-theme="light"] {
+    --bg-main: #F4FBFF;
+    --bg-card: #FFFFFF;
+    --bg-hover: #F1F5F9;
+    --border-color: #E2EAF2;
+    --text-main: #172B4D;
+    --text-secondary: #64748B;
+    --primary: #073B8C;
+    --primary-hover: #062F70;
+    --secondary: #1677C8;
+    --accent: #00A9E8;
+    --highlight: #FFD21C;
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] {
+    --bg-main: #0A0F1D;
+    --bg-card: #131B2E;
+    --bg-hover: #1A253E;
+    --border-color: #1F2E4D;
+    --text-main: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --primary: #1677C8;
+    --primary-hover: #1262A5;
+    --secondary: #00A9E8;
+    --accent: #38BDF8;
+    --highlight: #FFD21C;
+    color-scheme: dark;
+  }
+
+  [data-theme="cyberpunk"] {
+    --bg-main: #05080E;
+    --bg-card: #0C141F;
+    --bg-hover: #132032;
+    --border-color: #16364D;
+    --text-main: #E0F2FE;
+    --text-secondary: #7DD3FC;
+    --primary: #00E5FF;
+    --primary-hover: #00B4D8;
+    --secondary: #10B981;
+    --accent: #00FF66;
+    --highlight: #FFE600;
+    color-scheme: dark;
+  }
+
+  [data-theme="industrial"] {
+    --bg-main: #121214;
+    --bg-card: #1A1A1E;
+    --bg-hover: #26262B;
+    --border-color: #2E2E36;
+    --text-main: #F4F4F5;
+    --text-secondary: #A1A1AA;
+    --primary: #F59E0B;
+    --primary-hover: #D97706;
+    --secondary: #E11D48;
+    --accent: #FBBF24;
+    --highlight: #FFD21C;
+    color-scheme: dark;
+  }
+
+  [data-theme="space"] {
+    --bg-main: #0B0818;
+    --bg-card: #15102A;
+    --bg-hover: #221B42;
+    --border-color: #2D2256;
+    --text-main: #F5F3FF;
+    --text-secondary: #A78BFA;
+    --primary: #8B5CF6;
+    --primary-hover: #7C3AED;
+    --secondary: #A855F7;
+    --accent: #00E5FF;
+    --highlight: #F43F5E;
+    color-scheme: dark;
   }
 
   body {
-    background-color: var(--background);
-    color: var(--primary-text);
+    background-color: var(--bg-main);
+    color: var(--text-main);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
+}
+
+/* Global Theme Adapters for Dark / Cyberpunk / Industrial / Space */
+[data-theme="dark"] body,
+[data-theme="cyberpunk"] body,
+[data-theme="industrial"] body,
+[data-theme="space"] body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .bg-white,
+[data-theme="cyberpunk"] .bg-white,
+[data-theme="industrial"] .bg-white,
+[data-theme="space"] .bg-white {
+  background-color: var(--bg-card) !important;
+  color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .bg-\[\#F4FBFF\],
+[data-theme="cyberpunk"] .bg-\[\#F4FBFF\],
+[data-theme="industrial"] .bg-\[\#F4FBFF\],
+[data-theme="space"] .bg-\[\#F4FBFF\] {
+  background-color: var(--bg-main) !important;
+}
+
+[data-theme="dark"] .bg-\[\#F4FBFF\]\/50,
+[data-theme="dark"] .bg-\[\#F4FBFF\]\/40,
+[data-theme="dark"] .bg-\[\#F4FBFF\]\/70,
+[data-theme="dark"] .bg-\[\#F4FBFF\]\/80,
+[data-theme="cyberpunk"] .bg-\[\#F4FBFF\]\/50,
+[data-theme="cyberpunk"] .bg-\[\#F4FBFF\]\/40,
+[data-theme="cyberpunk"] .bg-\[\#F4FBFF\]\/70,
+[data-theme="cyberpunk"] .bg-\[\#F4FBFF\]\/80,
+[data-theme="industrial"] .bg-\[\#F4FBFF\]\/50,
+[data-theme="industrial"] .bg-\[\#F4FBFF\]\/40,
+[data-theme="industrial"] .bg-\[\#F4FBFF\]\/70,
+[data-theme="industrial"] .bg-\[\#F4FBFF\]\/80,
+[data-theme="space"] .bg-\[\#F4FBFF\]\/50,
+[data-theme="space"] .bg-\[\#F4FBFF\]\/40,
+[data-theme="space"] .bg-\[\#F4FBFF\]\/70,
+[data-theme="space"] .bg-\[\#F4FBFF\]\/80 {
+  background-color: var(--bg-hover) !important;
+}
+
+[data-theme="dark"] .border-\[\#E2EAF2\],
+[data-theme="cyberpunk"] .border-\[\#E2EAF2\],
+[data-theme="industrial"] .border-\[\#E2EAF2\],
+[data-theme="space"] .border-\[\#E2EAF2\] {
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .text-\[\#172B4D\],
+[data-theme="cyberpunk"] .text-\[\#172B4D\],
+[data-theme="industrial"] .text-\[\#172B4D\],
+[data-theme="space"] .text-\[\#172B4D\] {
+  color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .text-\[\#64748B\],
+[data-theme="cyberpunk"] .text-\[\#64748B\],
+[data-theme="industrial"] .text-\[\#64748B\],
+[data-theme="space"] .text-\[\#64748B\] {
+  color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] aside,
+[data-theme="cyberpunk"] aside,
+[data-theme="industrial"] aside,
+[data-theme="space"] aside,
+[data-theme="dark"] header,
+[data-theme="cyberpunk"] header,
+[data-theme="industrial"] header,
+[data-theme="space"] header {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea,
+[data-theme="cyberpunk"] input,
+[data-theme="cyberpunk"] select,
+[data-theme="cyberpunk"] textarea,
+[data-theme="industrial"] input,
+[data-theme="industrial"] select,
+[data-theme="industrial"] textarea,
+[data-theme="space"] input,
+[data-theme="space"] select,
+[data-theme="space"] textarea {
+  background-color: var(--bg-hover) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-color) !important;
 }
 
 /* Custom Sleek Scrollbar */
@@ -31,16 +189,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #F1F5F9;
+  background: var(--bg-main, #F1F5F9);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: var(--border-color, #CBD5E1);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: var(--text-secondary, #94A3B8);
 }
 
 /* Biometric Scanner Laser Animation */

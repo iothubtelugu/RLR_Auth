@@ -14,11 +14,15 @@ import {
   AlertTriangle,
   Download,
   Users,
+  Palette,
+  Check,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { useTheme, THEMES, ThemeId } from '@/lib/theme/ThemeContext';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'general' | 'attendance' | 'device' | 'security' | 'backup'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'themes' | 'attendance' | 'device' | 'security' | 'backup'>('general');
+  const { theme: currentTheme, setTheme, themesList } = useTheme();
   const [settings, setSettings] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -130,6 +134,18 @@ export default function SettingsPage() {
         >
           <Building className="w-3.5 h-3.5" />
           <span>General & Identity</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('themes')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+            activeTab === 'themes'
+              ? 'bg-[#073B8C] text-white shadow-sm'
+              : 'text-[#64748B] hover:text-[#073B8C] bg-white border border-[#E2EAF2]'
+          }`}
+        >
+          <Palette className="w-3.5 h-3.5" />
+          <span>Themes & Appearance</span>
         </button>
 
         <button
@@ -260,6 +276,98 @@ export default function SettingsPage() {
               </button>
             </div>
           </form>
+        )}
+
+        {/* TAB 2: THEMES & APPEARANCE */}
+        {activeTab === 'themes' && (
+          <div className="space-y-6 text-xs">
+            <div>
+              <h3 className="text-sm font-bold text-[#172B4D] pb-1 border-b border-[#E2EAF2]">
+                Robotics Lab Theme & Visual Palette
+              </h3>
+              <p className="text-[#64748B] mt-1 mb-4">
+                Select an operational color theme tailored for university lab environments, night robotics operations, or high-contrast monitoring.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {themesList.map((t) => {
+                const isSelected = currentTheme === t.id;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-[#073B8C] shadow-elevated bg-[#F4FBFF]/40'
+                        : 'border-[#E2EAF2] hover:border-[#1677C8] hover:shadow-subtle'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-sm text-[#172B4D]">{t.name}</span>
+                        {isSelected ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#073B8C] text-white">
+                            <Check className="w-3 h-3" /> Active
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-[#64748B]">
+                            {t.badgeLabel}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-[#64748B] mb-3">{t.description}</p>
+                    </div>
+
+                    {/* Color Swatch Bar */}
+                    <div className="space-y-2 pt-2 border-t border-[#E2EAF2]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-[#94A3B8] uppercase">Palette:</span>
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <div
+                            className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
+                            style={{ backgroundColor: t.primaryColor }}
+                            title="Primary Accent"
+                          ></div>
+                          <div
+                            className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
+                            style={{ backgroundColor: t.accentColor }}
+                            title="Secondary Accent"
+                          ></div>
+                          <div
+                            className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
+                            style={{ backgroundColor: t.bgColor }}
+                            title="Background"
+                          ></div>
+                          <div
+                            className="w-5 h-5 rounded-full border border-black/10 shadow-xs"
+                            style={{ backgroundColor: t.cardColor }}
+                            title="Card Surface"
+                          ></div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTheme(t.id);
+                        }}
+                        className={`w-full py-1.5 rounded-xl font-bold text-xs transition ${
+                          isSelected
+                            ? 'bg-[#073B8C] text-white'
+                            : 'border border-[#CBD5E1] hover:bg-slate-50 text-[#172B4D]'
+                        }`}
+                      >
+                        {isSelected ? 'Applied' : 'Apply Theme'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {/* TAB 2: ATTENDANCE RULES */}

@@ -12,6 +12,7 @@ import {
   Sparkles,
   Menu,
 } from 'lucide-react';
+import { ThemeSelector } from '../ui/ThemeSelector';
 
 interface HeaderProps {
   pageTitle: string;
@@ -148,6 +149,9 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
         </div>
+
+        {/* Theme Selector */}
+        <ThemeSelector />
 
         {/* Quick Demo Scan Trigger */}
         {onOpenQuickScan && (

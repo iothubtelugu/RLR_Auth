@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { ThemeSelector } from '@/components/ui/ThemeSelector';
 import { formatTimeIST, formatDateIST, formatDurationElapsed } from '@/lib/utils/timezone';
 
 export default function KioskPage() {
@@ -220,6 +221,9 @@ export default function KioskPage() {
               <span>DISCONNECTED</span>
             </div>
           )}
+
+          {/* Theme Selector */}
+          <ThemeSelector />
 
           {/* Return to Admin Dashboard */}
           <Link
