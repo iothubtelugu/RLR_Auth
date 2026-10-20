@@ -64,6 +64,16 @@ Built strictly following the RLR design specifications:
 | **Warning / Cooldown** | `#F59E0B` | Cooldown notifications, demo mode indicators |
 | **Error / Denied** | `#DC2626` | Inactive member access denied, unverified scans |
 
+### Built-In Color Themes
+The application supports **5 operational laboratory themes** accessible via the top-header quick switcher or in **Settings -> Themes & Appearance**:
+1. **RLR Classic Light** (Default): Daylight university laboratory palette with navy (`#073B8C`) and cyan (`#00A9E8`).
+2. **Night Ops (Dark)**: Deep midnight navy (`#0A0F1D`) with elevated dark slate cards and blue telemetry.
+3. **Cyberpunk Matrix**: Pitch black void (`#05080E`) with neon cyan (`#00E5FF`) and luminescent matrix emerald borders.
+4. **Industrial Robotics**: Carbon fiber graphite (`#121214`) with KUKA-inspired safety amber (`#F59E0B`).
+5. **Deep Space AI**: Deep cosmic violet (`#0B0818`) with electric violet (`#8B5CF6`) and pulsar cyan.
+
+*Themes feature persistent `localStorage` saving, anti-FOUC initialization script, and full dark-mode compatibility for the Entrance Kiosk touchscreen.*
+
 ---
 
 ## 3. Quick Start & Installation
