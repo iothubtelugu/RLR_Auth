@@ -304,7 +304,99 @@ export default function DevicesPage() {
         </div>
       </div>
 
-      {/* 3. Non-Sensitive Diagnostics Live Console */}
+      {/* 3. Registered Hardware Terminals & IoT Nodes */}
+      <div className="bg-white rounded-2xl p-6 border border-[#E2EAF2] shadow-subtle mb-6">
+        <div className="flex items-center justify-between pb-4 border-b border-[#E2EAF2] mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-[#172B4D]">Registered Biometric Devices & Access Nodes</h3>
+            <p className="text-xs text-[#64748B]">
+              Physical embedded terminals, Wi-Fi ESP32 door modules, and kiosk scanner bridges configured in the database.
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#073B8C] border border-blue-200">
+            {deviceData?.devices?.length || 0} Devices Registered
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {deviceData?.devices?.map((dev: any) => (
+            <div
+              key={dev.id}
+              className={`p-4 rounded-xl border transition flex flex-col justify-between ${
+                dev.id === 'dev-rlr-esp32-01'
+                  ? 'border-blue-300 bg-blue-50/20'
+                  : 'border-[#E2EAF2] bg-white hover:border-slate-300'
+              }`}
+            >
+              <div>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100/70 text-[#073B8C] flex items-center justify-center font-bold text-xs">
+                      <Cpu className="w-4 h-4 text-[#1677C8]" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-[#172B4D] leading-tight">{dev.device_name}</h4>
+                      <span className="text-[10px] font-mono text-[#64748B]">{dev.id}</span>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      dev.status === 'ONLINE'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : dev.status === 'DEMO'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
+                  >
+                    {dev.status}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-[#64748B] mb-3 line-clamp-2">{dev.notes || `${dev.manufacturer} • ${dev.model}`}</p>
+
+                <div className="space-y-1.5 text-[11px] border-t border-[#E2EAF2] pt-2 text-[#64748B]">
+                  <div className="flex items-center justify-between">
+                    <span>Hardware:</span>
+                    <span className="font-semibold text-[#172B4D] truncate max-w-[150px]">{dev.model}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Interface:</span>
+                    <span className="font-mono font-medium text-[#172B4D] bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">
+                      {dev.connection_type}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Address / Host:</span>
+                    <span className="font-mono text-[#172B4D] text-[10px]">{dev.ip_or_port || 'Local Socket'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Firmware:</span>
+                    <span className="font-medium text-[#172B4D]">{dev.firmware_version || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Last Seen:</span>
+                    <span className="font-medium text-[#172B4D]">
+                      {dev.last_seen_at ? formatDateTimeIST(dev.last_seen_at) : 'Never'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {dev.id === 'dev-rlr-esp32-01' && (
+                <div className="mt-3 pt-2 border-t border-blue-200/60 flex items-center justify-between text-[11px]">
+                  <span className="text-blue-700 font-semibold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Physical Door Node
+                  </span>
+                  <span className="text-[10px] text-blue-600 font-mono">UART2 + Wi-Fi</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 4. Non-Sensitive Diagnostics Live Console */}
       <div className="bg-[#172B4D] text-white rounded-2xl p-5 shadow-elevated border border-slate-700">
         <div className="flex items-center justify-between pb-3 border-b border-slate-700 mb-3">
           <div className="flex items-center gap-2">

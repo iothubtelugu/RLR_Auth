@@ -118,6 +118,22 @@ export async function seedDatabase(): Promise<{ success: boolean; message: strin
     now
   );
 
+  insertDevice.run(
+    'dev-rlr-esp32-01',
+    'RLR Door Access Node (ESP32 + R307/AS608)',
+    'Espressif / Synochip',
+    'ESP32-WROOM-32 + R307 Optical Sensor',
+    'SERIAL',
+    'ONLINE',
+    now,
+    now,
+    '192.168.1.105:3001',
+    'v1.2.0-esp32',
+    0,
+    'Standalone Wi-Fi & Serial biometric terminal mounted at laboratory entrance door.',
+    now
+  );
+
   // 5. Members
   const insertMember = db.prepare(
     `INSERT INTO members (id, full_name, email, phone, department, academic_year, roll_number, category, status, photo_url, is_inside, current_session_id, last_entry_time, last_exit_time, registration_date, notes, created_at, updated_at)

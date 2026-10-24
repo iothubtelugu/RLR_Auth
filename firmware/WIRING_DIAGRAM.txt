@@ -1,0 +1,96 @@
+========================================================================================
+ROBOTICS LAB OF RKV (RLR) — ESP32 + R307/AS608 HARDWARE WIRING DIAGRAM
+========================================================================================
+
+1. COMPLETE CIRCUIT SCHEMATIC (ASCII)
+----------------------------------------------------------------------------------------
+
+                +-------------------------------------------------+
+                |                  ESP32 DEV MODULE               |
+                |                                                 |
+  +5V Power --->| VIN                                          3V3|
+   GND -------->| GND                                          GND|
+                |                                                 |
+                | GPIO 16 (RX2) <-------- [TXD] R307 / AS608      |
+                | GPIO 17 (TX2) --------> [RXD] Fingerprint       |
+                | GPIO 4  (Touch) <...... [TOUCH] (Optional)      |
+                |                                                 |
+                | GPIO 21 (Blue LED) ---> [220Ω] ---> [LED (+)] -+|
+                |                                      LED (-) ---|---> GND
+                | GPIO 22 (Red LED)  ---> [220Ω] ---> [LED (+)] -+|
+                |                                      LED (-) ---|---> GND
+                | GPIO 19 (Buzzer)   ---> [BUZZER (+)] ----------+|
+                |                         BUZZER (-) -------------|---> GND
+                |                                                 |
+                | GPIO 18 (Btn 1)    ---> [Tactile Push Button] --|---> GND (Internal Pullup)
+                | GPIO 23 (Btn 2)    ---> [Tactile Push Button] --|---> GND (Internal Pullup)
+                +-------------------------------------------------+
+
+
+2. COMPONENT PINOUT TABLE
+----------------------------------------------------------------------------------------
+COMPONENT             MODULE PIN      ESP32 PIN       NOTES / RESISTOR
+----------------------------------------------------------------------------------------
+R307/AS608 Sensor     VCC (Pin 1)     VIN / 5V        Power: 5V DC (Optical prism needs 5V)
+R307/AS608 Sensor     GND (Pin 2)     GND             Common Ground
+R307/AS608 Sensor     TXD (Pin 3)     GPIO 16 (RX2)   UART TTL Serial Input to ESP32
+R307/AS608 Sensor     RXD (Pin 4)     GPIO 17 (TX2)   UART TTL Serial Output from ESP32
+R307/AS608 Sensor     TOUCH (Pin 5)   GPIO 4          Optional touch sense (Active HIGH)
+R307/AS608 Sensor     3.3V (Pin 6)    NOT CONNECTED   Leave floating / NC
+
+Blue Status LED       Anode (+)       GPIO 21         Via 220Ω or 330Ω Resistor
+Blue Status LED       Cathode (-)     GND             Direct Ground
+
+Red Error LED         Anode (+)       GPIO 22         Via 220Ω or 330Ω Resistor
+Red Error LED         Cathode (-)     GND             Direct Ground
+
+Buzzer (5V / 3.3V)    Positive (+)    GPIO 19         Direct GPIO drive
+Buzzer                Negative (-)    GND             Direct Ground
+
+Push Button 1 (Scan)  Terminal 1      GPIO 18         Manual Scan / Server Ping
+                      Terminal 2      GND             Uses internal INPUT_PULLUP
+
+Push Button 2 (Enroll)Terminal 1      GPIO 23         Hold 3s for Quick Enrollment
+                      Terminal 2      GND             Uses internal INPUT_PULLUP
+
+
+3. R307 / AS608 OPTICAL SENSOR 6-PIN JST CONNECTOR WIRE COLORS
+----------------------------------------------------------------------------------------
+Most standard R307 / AS608 optical fingerprint modules come with a 6-wire ribbon cable:
+
+  Pin 1: RED    -> VCC (Connect to ESP32 VIN or External 5V)
+  Pin 2: BLACK  -> GND (Connect to ESP32 GND)
+  Pin 3: YELLOW -> TXD (Connect to ESP32 GPIO 16 - RX2)
+  Pin 4: GREEN  -> RXD (Connect to ESP32 GPIO 17 - TX2)
+  Pin 5: BLUE   -> WAKEUP / TOUCH (Connect to GPIO 4 or leave disconnected)
+  Pin 6: WHITE  -> 3.3V OUT (Do NOT connect)
+
+*(Note: On some factory batches, TXD is Green and RXD is White. If the ESP32 says
+ "Did not find fingerprint sensor", swap GPIO 16 and GPIO 17 connections)*
+
+
+4. POWER SUPPLY RECOMMENDATIONS
+----------------------------------------------------------------------------------------
+- Optical fingerprint sensors draw ~80mA to 120mA when the optical prism LED lights up.
+- ESP32 Wi-Fi bursts draw up to 250mA-350mA during radio transmissions.
+- RECOMMENDATION: Power the system using a high-quality 5V 2A USB wall adapter connected
+  to the ESP32 Micro-USB / USB-C port, or wire an external regulated 5V 2A power supply
+  directly to the VIN and GND pins.
+- Avoid powering the optical sensor from the ESP32 3.3V pin, as 3.3V often lacks sufficient
+  optical brightness, leading to blurry scans or "Sensor not found" errors.
+
+
+5. AUDIO-VISUAL SIGNALING BEHAVIOR
+----------------------------------------------------------------------------------------
+ACTION / EVENT             BLUE LED       RED LED        BUZZER SOUND
+----------------------------------------------------------------------------------------
+Boot / Connecting Wi-Fi    Blinking (2Hz) OFF            Silent
+Connected & Ready          Double Flash   OFF            Ascending Welcome Chime
+Finger Placed on Scanner   Solid ON       OFF            1 Quick Chirp (30ms)
+ENTRY Recorded (Success)   Solid ON (2s)  OFF            Double High Beep (2.2kHz + 2.8kHz)
+EXIT Recorded (Success)    Solid ON (2s)  OFF            Triple High Beep (2kHz + 2.4kHz)
+Access Denied / Not Reg.   OFF            3 Blinks       3 Error Beeps (800Hz)
+Cooldown Active (< 15s)    OFF            2 Blinks       2 Short Warning Buzzes (1.2kHz)
+Wi-Fi / Network Error      OFF            Slow Blink     Long Low Tone (600ms)
+Enrollment Mode Active     Fast Flash     OFF            Continuous Prompt Beeps
+========================================================================================

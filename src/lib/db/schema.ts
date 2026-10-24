@@ -57,7 +57,7 @@ export interface Device {
   device_name: string;
   manufacturer: string;
   model: string;
-  connection_type: 'WEBSOCKET_AGENT' | 'WEBUSB' | 'SERIAL' | 'DEMO_ADAPTER';
+  connection_type: 'WEBSOCKET_AGENT' | 'WEBUSB' | 'SERIAL' | 'DEMO_ADAPTER' | 'WIFI_HTTP';
   status: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'DEMO';
   last_seen_at: string | null;
   last_successful_scan_at: string | null;
@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS devices (
   device_name TEXT NOT NULL,
   manufacturer TEXT NOT NULL,
   model TEXT NOT NULL,
-  connection_type TEXT NOT NULL CHECK(connection_type IN ('WEBSOCKET_AGENT', 'WEBUSB', 'SERIAL', 'DEMO_ADAPTER')),
+  connection_type TEXT NOT NULL CHECK(connection_type IN ('WEBSOCKET_AGENT', 'WEBUSB', 'SERIAL', 'DEMO_ADAPTER', 'WIFI_HTTP')),
   status TEXT NOT NULL DEFAULT 'DEMO' CHECK(status IN ('ONLINE', 'OFFLINE', 'ERROR', 'DEMO')),
   last_seen_at TEXT,
   last_successful_scan_at TEXT,
