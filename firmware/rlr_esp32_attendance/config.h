@@ -21,7 +21,7 @@
 // Lab / Hotspot Wi-Fi network credentials
 // Both the ESP32 and Laptop must connect to this same Wi-Fi network!
 #define WIFI_SSID           "Redmi 13 5G"          // Your exact Wi-Fi / Hotspot name
-#define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"   // Enter your Hotspot Wi-Fi password here
+#define WIFI_PASSWORD       "12345678"             // Hotspot Wi-Fi password
 
 // Next.js Attendance Backend Server IP and Port
 // Auto-detected Laptop Wi-Fi IP: 10.206.84.110

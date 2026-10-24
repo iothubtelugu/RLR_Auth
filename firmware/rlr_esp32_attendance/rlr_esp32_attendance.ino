@@ -7,21 +7,19 @@
  * Hardware Configuration:
  *   - ESP32 Dev Module (NodeMCU-32S / ESP-WROOM-32)
  *   - Optical Fingerprint Sensor Module (R307 / AS608 / FPM10A)
- *   - Blue LED (Pin 21) & Red LED (Pin 22)
- *   - Buzzer (Pin 19)
- *   - Push Buttons (Pin 18: Manual Scan/Ping, Pin 23: Enrollment Mode)
+ *   - Blue Status LED (GPIO 21) & Red Error LED (GPIO 22)
+ *   - Piezo Buzzer (GPIO 19)
+ *   - Push Button 1 (GPIO 18: Manual Scan / Health Ping)
+ *   - Push Button 2 (GPIO 23: Hold 3s for Quick Enrollment)
  * 
- * Dependencies (install via Arduino Library Manager):
- *   1. "Adafruit Fingerprint Sensor Library" by Adafruit (v2.1.3+)
- *   2. "ArduinoJson" by Benoit Blanchon (v6.21.4 or v7.x)
+ * Target Hotspot / Wi-Fi Network:
+ *   - SSID:     "Redmi 13 5G"
+ *   - Password: "12345678"
+ *   - Server:   http://10.206.84.110:3001
  * 
- * Architecture:
- *   - 1:N Biometric identification executed directly on R307/AS608 DSP chip.
- *   - Sends authenticated JSON payloads to Next.js REST API:
- *       POST http://<SERVER_IP>:3001/api/attendance/scan
- *   - Periodic health telemetry heartbeat:
- *       POST http://<SERVER_IP>:3001/api/devices/heartbeat
- *   - Interactive Serial Console & Physical Button Enrollment support.
+ * Required Libraries (Install via Arduino Library Manager):
+ *   1. "Adafruit Fingerprint Sensor Library" by Adafruit
+ *   2. "ArduinoJson" by Benoit Blanchon (v6 or v7)
  * 
  * Author: Robotics Lab of RKV Engineering Team
  * License: MIT
@@ -33,11 +31,67 @@
 #include <HTTPClient.h>
 #include <Adafruit_Fingerprint.h>
 #include <ArduinoJson.h>
-#include "config.h"
 
-// ----------------------------------------------------------------------------
-// GLOBAL OBJECTS & STATE
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 1. WI-FI & BACKEND SERVER CONFIGURATION
+// ============================================================================
+#define WIFI_SSID           "Redmi 13 5G"          // Mobile Hotspot Wi-Fi SSID
+#define WIFI_PASSWORD       "12345678"             // Mobile Hotspot Wi-Fi Password
+
+// Laptop LAN IP Address on the Redmi 13 5G Hotspot
+#define SERVER_HOST         "10.206.84.110"
+#define SERVER_PORT         3001
+
+// REST API Endpoints
+#define API_SCAN_PATH       "/api/attendance/scan"
+#define API_HEARTBEAT_PATH  "/api/devices/heartbeat"
+
+// Device Identity
+#define DEVICE_ID           "dev-rlr-esp32-01"
+#define DEVICE_NAME         "RLR Door Access Node (ESP32 + R307)"
+#define FIRMWARE_VERSION    "v1.2.0-esp32"
+
+// ============================================================================
+// 2. HARDWARE PIN DEFINITIONS (ESP32)
+// ============================================================================
+// Optical Fingerprint Sensor (Hardware UART2)
+// Connect Sensor TXD (Yellow/Green) to ESP32 RX2 (GPIO 16)
+// Connect Sensor RXD (White/Blue)   to ESP32 TX2 (GPIO 17)
+#define FP_RX_PIN           16   // ESP32 RX2 <-- R307/AS608 TX
+#define FP_TX_PIN           17   // ESP32 TX2 --> R307/AS608 RX
+
+// Visual Feedback LEDs
+#define LED_BLUE_PIN        21   // Ready / Success indicator (Active HIGH)
+#define LED_RED_PIN         22   // Error / Denied / Cooldown indicator (Active HIGH)
+
+// Auditory Feedback Buzzer
+#define BUZZER_PIN          19   // Active or Passive Piezo Buzzer (Active HIGH)
+#define IS_PASSIVE_BUZZER   false // Set true if using passive piezo with tone()
+
+// Push Buttons (Active LOW with internal INPUT_PULLUP)
+#define BTN_SCAN_PIN        18   // Push Button 1: Force Scan / Manual Health Check
+#define BTN_ENROLL_PIN      23   // Push Button 2: Hold 3s to enter Enrollment Mode
+
+// ============================================================================
+// 3. FINGERPRINT & CREDENTIAL MAPPING SETTINGS
+// ============================================================================
+#define FP_BAUD_RATE        57600   // Optical Sensor default factory baud rate
+#define DEBUG_BAUD_RATE     115200  // Serial monitor debug baud rate
+
+// Credential Reference Prefix Format
+// Maps sensor flash Slot 1 -> "FP-RLR-2024-001" (matches student database)
+#define CREDENTIAL_PREFIX   "FP-RLR-2024-"
+#define MEMBER_ID_PREFIX    "RLR-2024-"
+
+// Timing Constants
+#define HEARTBEAT_INTERVAL_MS   30000   // Send status ping to server every 30s
+#define SENSOR_POLL_INTERVAL_MS 150     // Polling delay between fingerprint queries
+#define BTN_LONG_PRESS_MS       3000    // Hold Button 2 for 3s to trigger enrollment
+#define HTTP_TIMEOUT_MS         5000    // HTTP request timeout
+
+// ============================================================================
+// 4. GLOBAL OBJECTS & STATE
+// ============================================================================
 HardwareSerial fpSerial(2); // ESP32 Hardware UART2
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&fpSerial);
 
@@ -47,9 +101,9 @@ unsigned long lastScanTime = 0;
 unsigned long btnEnrollPressStart = 0;
 bool btnEnrollHolding = false;
 
-// ----------------------------------------------------------------------------
-// AUDIO-VISUAL FEEDBACK HELPERS
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 5. AUDIO-VISUAL FEEDBACK HELPERS
+// ============================================================================
 void playBeep(int durationMs, int frequencyHz = 2400) {
   #if IS_PASSIVE_BUZZER
     ledcAttachPin(BUZZER_PIN, 0);
@@ -94,7 +148,7 @@ void playSuccessExit() {
 }
 
 void playDeniedTone() {
-  // Access Denied: 3 Red LED blinks + long error buzz
+  // Access Denied: 3 Red LED blinks + error buzzes
   for (int i = 0; i < 3; i++) {
     digitalWrite(LED_RED_PIN, HIGH);
     playBeep(120, 800);
@@ -119,9 +173,9 @@ void playNetworkErrorTone() {
   digitalWrite(LED_RED_PIN, LOW);
 }
 
-// ----------------------------------------------------------------------------
-// WI-FI CONNECTION MANAGER
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 6. WI-FI CONNECTION MANAGER
+// ============================================================================
 void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) return;
 
@@ -143,7 +197,7 @@ void connectWiFi() {
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println(F("\n[Wi-Fi] Connected successfully!"));
-    Serial.print(F("[Wi-Fi] IP Address: "));
+    Serial.print(F("[Wi-Fi] ESP32 IP Address: "));
     Serial.println(WiFi.localIP());
     Serial.print(F("[Wi-Fi] RSSI Signal: "));
     Serial.print(WiFi.RSSI());
@@ -155,9 +209,9 @@ void connectWiFi() {
   }
 }
 
-// ----------------------------------------------------------------------------
-// FINGERPRINT SENSOR INITIALIZATION & HEALTH
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 7. FINGERPRINT SENSOR INITIALIZATION & HEALTH
+// ============================================================================
 bool initFingerprintSensor() {
   Serial.println(F("\n[Fingerprint] Initializing R307/AS608 Optical Sensor..."));
   
@@ -174,7 +228,6 @@ bool initFingerprintSensor() {
     Serial.print(F("[Fingerprint] Status Reg: 0x")); Serial.println(finger.status_reg, HEX);
     Serial.print(F("[Fingerprint] Sensor Capacity: ")); Serial.print(finger.capacity); Serial.println(F(" templates"));
     Serial.print(F("[Fingerprint] Security Level: ")); Serial.println(finger.security_level);
-    Serial.print(F("[Fingerprint] Sensor Baud Rate: ")); Serial.println(finger.baud_rate);
 
     finger.getTemplateCount();
     Serial.print(F("[Fingerprint] Stored Fingerprints: "));
@@ -184,15 +237,15 @@ bool initFingerprintSensor() {
   } else {
     sensorConnected = false;
     Serial.println(F("[Fingerprint] ERROR: Did not find fingerprint sensor!"));
-    Serial.println(F("  -> Check 5V power supply to sensor VCC"));
-    Serial.println(F("  -> Check RX/TX wiring: Sensor TX -> ESP32 GPIO 16, Sensor RX -> ESP32 GPIO 17"));
+    Serial.println(F("  -> Check 5V power supply: Sensor Red wire must be on VIN / 5V"));
+    Serial.println(F("  -> Check RX/TX: Try swapping GPIO 16 (RX2) and GPIO 17 (TX2)"));
     return false;
   }
 }
 
-// ----------------------------------------------------------------------------
-// REST API: SEND ATTENDANCE SCAN
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 8. REST API: SEND ATTENDANCE SCAN OVER WI-FI
+// ============================================================================
 void sendAttendanceScan(uint16_t slotId, uint16_t confidence) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println(F("[HTTP] Error: Wi-Fi not connected. Cannot send scan."));
@@ -214,18 +267,21 @@ void sendAttendanceScan(uint16_t slotId, uint16_t confidence) {
   snprintf(credRef, sizeof(credRef), "%s%03d", CREDENTIAL_PREFIX, slotId);
   snprintf(memberId, sizeof(memberId), "%s%03d", MEMBER_ID_PREFIX, slotId);
 
-  // Construct JSON Payload
-  StaticJsonDocument<512> doc;
+  // Construct JSON Payload (compatible with ArduinoJson v6 and v7)
+  #if ARDUINOJSON_VERSION_MAJOR >= 7
+    JsonDocument doc;
+  #else
+    StaticJsonDocument<512> doc;
+  #endif
+
   doc["credentialReference"] = credRef;
   doc["memberId"] = memberId;
   doc["verificationSource"] = "FINGERPRINT_HARDWARE";
   doc["deviceId"] = DEVICE_ID;
-
-  JsonObject meta = doc.createNestedObject("rawMetadata");
-  meta["slotId"] = slotId;
-  meta["confidenceScore"] = confidence;
-  meta["wifiRssi"] = WiFi.RSSI();
-  meta["firmware"] = FIRMWARE_VERSION;
+  doc["rawMetadata"]["slotId"] = slotId;
+  doc["rawMetadata"]["confidenceScore"] = confidence;
+  doc["rawMetadata"]["wifiRssi"] = WiFi.RSSI();
+  doc["rawMetadata"]["firmware"] = FIRMWARE_VERSION;
 
   String jsonPayload;
   serializeJson(doc, jsonPayload);
@@ -250,7 +306,12 @@ void sendAttendanceScan(uint16_t slotId, uint16_t confidence) {
     Serial.print(F("[HTTP] Response: "));
     Serial.println(responseString);
 
-    StaticJsonDocument<1024> resp;
+    #if ARDUINOJSON_VERSION_MAJOR >= 7
+      JsonDocument resp;
+    #else
+      StaticJsonDocument<1024> resp;
+    #endif
+
     DeserializationError error = deserializeJson(resp, responseString);
 
     if (!error) {
@@ -260,7 +321,7 @@ void sendAttendanceScan(uint16_t slotId, uint16_t confidence) {
       const char* errorCode = resp["errorCode"] | "";
 
       if (success) {
-        const char* name = resp["member"]["fullName"] | "Member";
+        const char* name = resp["member"]["fullName"] | "Student";
         const char* dept = resp["member"]["department"] | "";
         
         Serial.println(F("=================================================="));
@@ -305,9 +366,9 @@ void sendAttendanceScan(uint16_t slotId, uint16_t confidence) {
   http.end();
 }
 
-// ----------------------------------------------------------------------------
-// REST API: SEND DEVICE HEARTBEAT TELEMETRY
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 9. REST API: SEND DEVICE HEARTBEAT TELEMETRY
+// ============================================================================
 void sendDeviceHeartbeat() {
   if (WiFi.status() != WL_CONNECTED) return;
 
@@ -316,7 +377,12 @@ void sendDeviceHeartbeat() {
 
   finger.getTemplateCount();
 
-  StaticJsonDocument<512> doc;
+  #if ARDUINOJSON_VERSION_MAJOR >= 7
+    JsonDocument doc;
+  #else
+    StaticJsonDocument<512> doc;
+  #endif
+
   doc["deviceId"] = DEVICE_ID;
   doc["deviceName"] = DEVICE_NAME;
   doc["manufacturer"] = "Espressif / Synochip";
@@ -326,12 +392,11 @@ void sendDeviceHeartbeat() {
   doc["firmwareVersion"] = FIRMWARE_VERSION;
   doc["status"] = sensorConnected ? "ONLINE" : "ERROR";
 
-  JsonObject telemetry = doc.createNestedObject("telemetry");
-  telemetry["rssi"] = WiFi.RSSI();
-  telemetry["freeHeap"] = ESP.getFreeHeap();
-  telemetry["enrolledTemplates"] = finger.templateCount;
-  telemetry["uptimeSeconds"] = millis() / 1000;
-  telemetry["sensorOperational"] = sensorConnected;
+  doc["telemetry"]["rssi"] = WiFi.RSSI();
+  doc["telemetry"]["freeHeap"] = ESP.getFreeHeap();
+  doc["telemetry"]["enrolledTemplates"] = finger.templateCount;
+  doc["telemetry"]["uptimeSeconds"] = millis() / 1000;
+  doc["telemetry"]["sensorOperational"] = sensorConnected;
 
   String jsonPayload;
   serializeJson(doc, jsonPayload);
@@ -351,9 +416,9 @@ void sendDeviceHeartbeat() {
   http.end();
 }
 
-// ----------------------------------------------------------------------------
-// BIOMETRIC SCANNING LOOP
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 10. BIOMETRIC SCANNING LOOP
+// ============================================================================
 void handleBiometricScan() {
   if (!sensorConnected) {
     static unsigned long lastRetry = 0;
@@ -385,7 +450,7 @@ void handleBiometricScan() {
   if (p != FINGERPRINT_OK) {
     digitalWrite(LED_BLUE_PIN, LOW);
     if (p == FINGERPRINT_IMAGEMESS) {
-      Serial.println(F("[Scan] Fingerprint image too messy/blurred. Please place finger firmly."));
+      Serial.println(F("[Scan] Fingerprint image too messy/blurred. Place finger firmly."));
     } else {
       Serial.println(F("[Scan] Feature extraction failed."));
     }
@@ -425,9 +490,9 @@ void handleBiometricScan() {
   }
 }
 
-// ----------------------------------------------------------------------------
-// INTERACTIVE GUIDED ENROLLMENT ROUTINE
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 11. INTERACTIVE GUIDED ENROLLMENT ROUTINE
+// ============================================================================
 bool enrollFingerprint(uint16_t id) {
   if (id < 1 || id > 1000) {
     Serial.println(F("[Enroll] Invalid Slot ID. Must be between 1 and 1000."));
@@ -550,9 +615,9 @@ bool enrollFingerprint(uint16_t id) {
   }
 }
 
-// ----------------------------------------------------------------------------
-// SERIAL MONITOR INTERACTIVE COMMAND CONSOLE
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 12. SERIAL MONITOR COMMAND CONSOLE
+// ============================================================================
 void handleSerialCommands() {
   if (!Serial.available()) return;
 
@@ -580,9 +645,9 @@ void handleSerialCommands() {
     Serial.print(F("Device ID: ")); Serial.println(DEVICE_ID);
     Serial.print(F("Firmware: ")); Serial.println(FIRMWARE_VERSION);
     Serial.print(F("Wi-Fi Status: ")); Serial.println(WiFi.status() == WL_CONNECTED ? "CONNECTED" : "DISCONNECTED");
-    Serial.print(F("Local IP: ")); Serial.println(WiFi.localIP());
-    Serial.print(F("RSSI: ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
-    Serial.print(F("Server Host: ")); Serial.print(SERVER_HOST); Serial.print(F(":")); Serial.println(SERVER_PORT);
+    Serial.print(F("ESP32 IP: ")); Serial.println(WiFi.localIP());
+    Serial.print(F("RSSI Signal: ")); Serial.print(WiFi.RSSI()); Serial.println(F(" dBm"));
+    Serial.print(F("Laptop Server: http://")); Serial.print(SERVER_HOST); Serial.print(F(":")); Serial.println(SERVER_PORT);
     Serial.print(F("Free RAM: ")); Serial.print(ESP.getFreeHeap() / 1024); Serial.println(F(" KB"));
     finger.getTemplateCount();
     Serial.print(F("Sensor Templates: ")); Serial.println(finger.templateCount);
@@ -629,9 +694,9 @@ void handleSerialCommands() {
   }
 }
 
-// ----------------------------------------------------------------------------
-// PHYSICAL BUTTONS HANDLER
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 13. PHYSICAL BUTTONS HANDLER
+// ============================================================================
 void handleButtons() {
   // Button 1: Force Scan / Manual Ping (Active LOW)
   static bool btn1Last = HIGH;
@@ -664,7 +729,7 @@ void handleButtons() {
       enrollFingerprint(nextSlot);
 
       btnEnrollHolding = false;
-      // Wait for release
+      // Wait for button release
       while (digitalRead(BTN_ENROLL_PIN) == LOW) delay(50);
     }
   } else {
@@ -672,9 +737,9 @@ void handleButtons() {
   }
 }
 
-// ----------------------------------------------------------------------------
-// ARDUINO SETUP
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 14. ARDUINO SETUP
+// ============================================================================
 void setup() {
   Serial.begin(DEBUG_BAUD_RATE);
   delay(1000);
@@ -696,17 +761,13 @@ void setup() {
   pinMode(BTN_SCAN_PIN, INPUT_PULLUP);
   pinMode(BTN_ENROLL_PIN, INPUT_PULLUP);
 
-  #if USE_TOUCH_INTERRUPT
-    pinMode(FP_TOUCH_PIN, INPUT);
-  #endif
-
   // Play startup welcome sound
   playChimeWelcome();
 
   // Initialize Fingerprint Module
   initFingerprintSensor();
 
-  // Connect to Wi-Fi
+  // Connect to Redmi 13 5G Wi-Fi
   connectWiFi();
 
   // Send initial boot heartbeat to Next.js server
@@ -716,9 +777,9 @@ void setup() {
   Serial.println(F("💡 Type 'help' in Serial Monitor for interactive commands.\n"));
 }
 
-// ----------------------------------------------------------------------------
-// ARDUINO MAIN LOOP
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 15. ARDUINO MAIN LOOP
+// ============================================================================
 void loop() {
   // 1. Maintain Wi-Fi Connection
   if (WiFi.status() != WL_CONNECTED) {
