@@ -78,7 +78,20 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     }
 
     const body = await request.json();
-    const { full_name, email, phone, department, academic_year, roll_number, category, status, notes, photo_url } = body;
+    const {
+      full_name,
+      email,
+      phone,
+      department,
+      academic_year,
+      roll_number,
+      category,
+      status,
+      notes,
+      photo_url,
+      fingerprint_slot,
+      finger_position,
+    } = body;
 
     const nowIso = getCurrentTimestamp();
 
@@ -112,6 +125,42 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       nowIso,
       memberId
     );
+
+    // If fingerprint slot was updated
+    if (fingerprint_slot !== undefined && fingerprint_slot !== null) {
+      const slotNum = parseInt(String(fingerprint_slot), 10);
+      if (!isNaN(slotNum) && slotNum > 0) {
+        const credRef = `FP-RLR-2024-${slotNum.toString().padStart(3, '0')}`;
+        const credId = `BIO-${memberId}`;
+
+        // Revoke any other credential for this member
+        db.prepare('UPDATE biometric_credentials SET is_revoked = 1, revoked_at = ? WHERE member_id = ?').run(
+          nowIso,
+          memberId
+        );
+
+        // Check if this slot was used by another member
+        db.prepare('UPDATE biometric_credentials SET is_revoked = 1, revoked_at = ? WHERE credential_reference = ?').run(
+          nowIso,
+          credRef
+        );
+
+        // Insert new active credential
+        db.prepare(`
+          INSERT INTO biometric_credentials (
+            id, member_id, device_id, credential_reference, finger_position,
+            quality_score, is_revoked, enrolled_by_user_id, enrolled_at
+          ) VALUES (?, ?, 'dev-rlr-esp32-01', ?, ?, 98, 0, ?, ?)
+        `).run(
+          credId,
+          memberId,
+          credRef,
+          finger_position || 'RIGHT_INDEX',
+          session.userId,
+          nowIso
+        );
+      }
+    }
 
     // Audit log
     const auditId = `AUD-${Date.now()}`;
@@ -154,6 +203,34 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     const nowIso = getCurrentTimestamp();
+
+    const url = new URL(request.url);
+    const hardDelete = url.searchParams.get('hard') === 'true' || url.searchParams.get('force') === 'true';
+
+    if (hardDelete) {
+      // Hard delete member and associated credentials
+      db.prepare('DELETE FROM biometric_credentials WHERE member_id = ?').run(memberId);
+      db.prepare('DELETE FROM members WHERE id = ?').run(memberId);
+
+      // Audit log
+      const auditId = `AUD-${Date.now()}`;
+      db.prepare(`
+        INSERT INTO audit_logs (id, user_id, username, action, target_type, target_id, details, timestamp)
+        VALUES (?, ?, ?, 'MEMBER_DELETED', 'MEMBER', ?, ?, ?)
+      `).run(
+        auditId,
+        session.userId,
+        session.username,
+        memberId,
+        JSON.stringify({ name: member.full_name, reason: 'Permanently deleted by administrator' }),
+        nowIso
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: `Member ${member.full_name} (${memberId}) permanently deleted.`,
+      });
+    }
 
     // Soft deactivation to protect historical attendance data (as requested in Requirement 7)
     db.prepare("UPDATE members SET status = 'INACTIVE', updated_at = ? WHERE id = ?").run(nowIso, memberId);

@@ -18,14 +18,14 @@
 // ============================================================================
 // 1. WI-FI & NETWORK CONFIGURATION
 // ============================================================================
-// Replace with your lab Wi-Fi network credentials
-#define WIFI_SSID           "RLR_Robotics_Lab"
-#define WIFI_PASSWORD       "Robotics@RKV2024"
+// Lab / Hotspot Wi-Fi network credentials
+// Both the ESP32 and Laptop must connect to this same Wi-Fi network!
+#define WIFI_SSID           "Redmi 13 5G"          // Your exact Wi-Fi / Hotspot name
+#define WIFI_PASSWORD       "YOUR_WIFI_PASSWORD"   // Enter your Hotspot Wi-Fi password here
 
 // Next.js Attendance Backend Server IP and Port
-// When running locally on a PC, enter that computer's LAN IP (e.g. 192.168.1.100)
-// Check using 'ipconfig' (Windows) or 'ifconfig' (Linux/Mac)
-#define SERVER_HOST         "192.168.1.100"
+// Auto-detected Laptop Wi-Fi IP: 10.206.84.110
+#define SERVER_HOST         "10.206.84.110"
 #define SERVER_PORT         3001
 
 // API Endpoints

@@ -379,9 +379,9 @@ export default function MembersPage() {
                     <td className="py-3 px-4">
                       {m.credential_reference ? (
                         <div className="flex items-center gap-1.5 text-emerald-700">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="font-mono text-[11px] font-semibold truncate max-w-[100px]">
-                            {m.credential_reference}
+                          <Fingerprint className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="font-mono text-[11px] font-bold">
+                            {m.fingerprint_slot ? `Slot #${m.fingerprint_slot}` : m.credential_reference}
                           </span>
                         </div>
                       ) : (

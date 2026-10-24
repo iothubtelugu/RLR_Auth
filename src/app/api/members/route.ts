@@ -23,6 +23,7 @@ export async function GET(request: Request) {
         m.*,
         c.id as credential_id,
         c.credential_reference,
+        c.finger_position,
         c.is_revoked as credential_is_revoked,
         c.quality_score as credential_quality,
         c.enrolled_at as credential_enrolled_at,
@@ -68,9 +69,23 @@ export async function GET(request: Request) {
     const pagedQuery = `${query} LIMIT ? OFFSET ?`;
     const members = db.prepare(pagedQuery).all(...params, limit, offset);
 
+    const mappedMembers = members.map((m: any) => {
+      let slot: number | null = null;
+      if (m.credential_reference) {
+        const match = m.credential_reference.match(/(\d+)$/);
+        if (match) {
+          slot = parseInt(match[1], 10);
+        }
+      }
+      return {
+        ...m,
+        fingerprint_slot: slot,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      data: members,
+      data: mappedMembers,
       pagination: {
         total: totalCount,
         page,
@@ -95,7 +110,21 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { id, full_name, email, phone, department, academic_year, roll_number, category, status, notes, photo_url } = body;
+    const {
+      id,
+      full_name,
+      email,
+      phone,
+      department,
+      academic_year,
+      roll_number,
+      category,
+      status,
+      notes,
+      photo_url,
+      fingerprint_slot,
+      finger_position,
+    } = body;
 
     if (!full_name || !department || !academic_year || !category) {
       return NextResponse.json({ error: 'full_name, department, academic_year, and category are required' }, { status: 400 });
@@ -105,13 +134,19 @@ export async function POST(request: Request) {
     const nowIso = getCurrentTimestamp();
     const today = getZonedDateString();
 
+    const slotNum = fingerprint_slot ? parseInt(String(fingerprint_slot), 10) : null;
+
     // Generate member ID if not provided, or ensure uniqueness
     let memberId = id?.trim();
     if (!memberId) {
       const yearPrefix = new Date().getFullYear();
-      const countRow = db.prepare('SELECT COUNT(*) as c FROM members').get() as { c: number };
-      const nextNum = (countRow.c + 1).toString().padStart(3, '0');
-      memberId = `RLR-${yearPrefix}-${nextNum}`;
+      if (slotNum && !isNaN(slotNum)) {
+        memberId = `RLR-${yearPrefix}-${slotNum.toString().padStart(3, '0')}`;
+      } else {
+        const countRow = db.prepare('SELECT COUNT(*) as c FROM members').get() as { c: number };
+        const nextNum = (countRow.c + 1).toString().padStart(3, '0');
+        memberId = `RLR-${yearPrefix}-${nextNum}`;
+      }
     } else {
       const existing = db.prepare('SELECT id FROM members WHERE id = ?').get(memberId);
       if (existing) {
@@ -143,6 +178,41 @@ export async function POST(request: Request) {
       nowIso
     );
 
+    // If Fingerprint Slot is assigned, create biometric credential record immediately
+    let credRef: string | null = null;
+    if (slotNum && !isNaN(slotNum)) {
+      credRef = `FP-RLR-2024-${slotNum.toString().padStart(3, '0')}`;
+      const credId = `BIO-${memberId}`;
+
+      // Check if slot reference is already assigned to an active member
+      const existingSlot = db
+        .prepare('SELECT id, member_id FROM biometric_credentials WHERE credential_reference = ? AND is_revoked = 0')
+        .get(credRef) as any;
+
+      if (existingSlot) {
+        return NextResponse.json(
+          {
+            error: `Sensor Slot #${slotNum} (${credRef}) is already assigned to member ${existingSlot.member_id}. Please pick another slot.`,
+          },
+          { status: 409 }
+        );
+      }
+
+      db.prepare(`
+        INSERT INTO biometric_credentials (
+          id, member_id, device_id, credential_reference, finger_position,
+          quality_score, is_revoked, enrolled_by_user_id, enrolled_at
+        ) VALUES (?, ?, 'dev-rlr-esp32-01', ?, ?, 98, 0, ?, ?)
+      `).run(
+        credId,
+        memberId,
+        credRef,
+        finger_position || 'RIGHT_INDEX',
+        session.userId,
+        nowIso
+      );
+    }
+
     // Audit log
     const auditId = `AUD-${Date.now()}`;
     db.prepare(`
@@ -153,12 +223,17 @@ export async function POST(request: Request) {
       session.userId,
       session.username,
       memberId,
-      JSON.stringify({ name: full_name, department, category }),
+      JSON.stringify({ name: full_name, department, category, fingerprintSlot: slotNum, credRef }),
       nowIso
     );
 
     const createdMember = db.prepare('SELECT * FROM members WHERE id = ?').get(memberId);
-    return NextResponse.json({ success: true, member: createdMember }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      member: createdMember,
+      fingerprintSlot: slotNum,
+      credentialReference: credRef,
+    }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
